@@ -1,21 +1,9 @@
 """
-	File name: package_statistics.py
-	Author: Tsagkarakis Stelios
-	Date created: 16/11/2022
-	Python version: 3
-
-	Description:
-        python command line tool that takes the architecture
-        (amd64, arm64, mips etc.) as an argument and downloads
-        the compressed Contents file associated with it from a
-        Debian mirror. The program should parse the file and
-        output the statistics of the top 10 packages that have
-        the most files associated with them.
-
-    Exit codes:
-         0: Execution completed succesfully
-        -1: Could not download file
-        -2: Could not delete file after execution completed
+    Python script that takes the architecture (amd64, arm64, mips etc.)
+    as an argument and downloads the compressed Contents file associated
+    with it from a Debian mirror. The program parses the file and outputs
+    the names of the top 10 packages that have the most files associated
+    with them.
 """
 
 from __future__ import annotations
@@ -45,11 +33,7 @@ def parse_arguments(fname: str, archs: List[str]) -> argparse.Namespace:
 
     argparser = argparse.ArgumentParser(
         usage="python3 " + fname + " <arch>",
-        description="python command line tool that takes the architecture\
-                    (amd64, arm64, mips etc.) as an argument and downloads\
-                    the compressed Contents file associated with it from a\
-                    Debian mirror. The program outputs the top 10 packages\
-                    that have the most files associated with them."
+        description=__doc__
     )
 
     # pop the "optional" group to add required group only
@@ -146,7 +130,7 @@ def count_package_occurence(package_file_list: List[Union[str, List[str]]],
         # package_dict[i] = package_dict[i] + 1 if (i in package_dict) else 1
 
 
-def initiate_execution(arguments: argparse.Namespace) -> Dict[str, int]:
+def get_occurences_dictionary(arguments: argparse.Namespace) -> Dict[str, int]:
     """ Start main execution. Read architecture and download the "Contents-$arch.gz" file.
     After finalising execution delete the downloaded file.
 
@@ -184,10 +168,42 @@ def initiate_execution(arguments: argparse.Namespace) -> Dict[str, int]:
             sys.exit(-2)
 
         return package_dict  # finally return
+
     except URLError as caught_error:
         print(caught_error.reason)
         print("Check internet connection or specify the correct url.")
         sys.exit(-1)
+
+
+def get_top_n_elements(package_dict: Dict[str, int], top_n: int) -> List[str]:
+    """Return a list of the top "top_n" elements with most occurences
+
+    Args:
+        package_dict (Dict[str, int]): (key:value) pairs as (package_name:occurences)
+        n (int): Top n elements
+
+    Returns:
+        List[str]: A list with the top n elements (without the occurence)
+    """
+
+    # get the N most frequent packages using heapq which is of O(N) complexity
+    top_n_packages = heapq.nlargest(
+        top_n, package_dict, key=lambda key: package_dict[key])
+
+    return top_n_packages
+
+
+def print_formatted(package_dict: Dict[str, int], top_n: List[str]) -> None:
+    """Print the top N elements of "dict" formatted in two columns
+
+    Args:
+        package_dict (Dict[str,int]): (key:value) pairs as (package_name:occurences)
+        top_n (List[str]): the top N elements
+    """
+
+    for idx, item in enumerate(top_n):
+        print(f'{idx+1:>4}' + ". " + f'{item:<50}' +
+              "\t", package_dict[item], sep='')
 
 
 if __name__ == "__main__":
@@ -201,17 +217,11 @@ if __name__ == "__main__":
         # validate architecture
         assert args.arch[0] in accepted_architectures
 
-        # get the dictionary with packages counted
-        res_dict = initiate_execution(args)
-
-        # get the N most frequent packages using heapq which is of O(N) complexity
-        max_packages = heapq.nlargest(
-            args.n[0], res_dict, key=lambda key: res_dict[key])
-
-        # print the values formatted
-        for idx,item in enumerate(max_packages):
-            print(f'{idx+1:>4}' + ". " + f'{item:<50}' +
-                  "\t", res_dict[item], sep='')
+        # get the dictionary with packages occurences counted
+        res_dict = get_occurences_dictionary(args)
+        # retrieve the top n
+        max_packages = get_top_n_elements(res_dict, args.n[0])
+        print_formatted(res_dict, max_packages)  # print the values formatted
 
     except AssertionError:
         # print explanatory message
