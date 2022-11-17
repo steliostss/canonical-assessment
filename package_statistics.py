@@ -15,6 +15,7 @@ import gzip
 import re
 import sys
 import heapq
+import tempfile
 
 from typing import List, Union, Dict  # type hinting
 from urllib.error import URLError
@@ -84,12 +85,13 @@ def clean_package_str(line: str) -> List[Union[str, List[str]]]:
     return [ref_file, packages]
 
 
-def get_file(arch: str) -> str:
+def get_file(arch: str, temp_dir: str) -> str:
     """Get the target architecture and download the corresponding
     "Contents-$arch.gz" file for a debian mirror.
 
     Args:
         arch (str): Target architecture
+        temp_dir (str): Temporary Directory to save file
 
     Returns:
         str: Name of downloaded file
@@ -97,16 +99,12 @@ def get_file(arch: str) -> str:
 
     uri = "http://ftp.uk.debian.org/debian/dists/stable/main/"
     contents = "Contents-" + arch + ".gz"
+    full_path = os.path.join(temp_dir, contents)
 
     # download file from mirror link
-    if os.path.isfile(contents):
-        pass  # File exists
-    else:
-        print("Downloading file...")
-        # File does not exist: Download
-        urllib.request.urlretrieve(uri+contents, contents)
+    urllib.request.urlretrieve(uri+contents, full_path)
 
-    return contents
+    return full_path
 
 
 def count_package_occurence(package_file_list: List[Union[str, List[str]]],
@@ -120,14 +118,10 @@ def count_package_occurence(package_file_list: List[Union[str, List[str]]],
         package_dict (Dict[str, int]): Stores (key:value) pairs as (package_name:occurences)
     """
 
-    for i in package_file_list[1]:
-        if i in package_dict:
-            package_dict[i] += 1
-        else:
-            package_dict[i] = 1
-
-        # alternative syntax - less readable
-        # package_dict[i] = package_dict[i] + 1 if (i in package_dict) else 1
+    for pkg in package_file_list[1]:
+        # add an occurence if it does not exist or just increment by 1
+        package_dict[pkg] = package_dict[pkg] + \
+            1 if (pkg in package_dict) else 1
 
 
 def get_occurences_dictionary(arguments: argparse.Namespace) -> Dict[str, int]:
@@ -146,29 +140,24 @@ def get_occurences_dictionary(arguments: argparse.Namespace) -> Dict[str, int]:
     """
 
     try:
-        contents = get_file(arguments.arch[0])
-        # read compressed file in text mode
-        contents_file = gzip.open(contents, mode='rt')
-        contents_lines = contents_file.readlines()  # read by lines
-        # count = 0
         package_dict = {}
-        for line in contents_lines:
-            # get the two element list from the line: [file, packages]
-            package_file_list = clean_package_str(line)
+        # open a temporary directory download file
+        with tempfile.TemporaryDirectory() as tempdirname:
+            contents = get_file(arguments.arch[0], tempdirname)
+            # read compressed file in text mode
+            contents_file = gzip.open(contents, mode='rt')
+            contents_lines = contents_file.readlines()  # read by lines
+            # count = 0
+            for line in contents_lines:
+                # get the two element list from the line: [file, packages]
+                package_file_list = clean_package_str(line)
 
-            # count the occurence of each package in the package list
-            count_package_occurence(package_file_list, package_dict)
+                # count the occurence of each package in the package list
+                count_package_occurence(package_file_list, package_dict)
 
-        # finally close the file
-        contents_file.close()
-        try:
-            if args.d:
-                # attempt to delete file if not specified by user
-                os.remove(contents)
-                print("File deleted.")
-        except OSError:
-            print("Could not delete file: " + contents)
-            sys.exit(-2)
+            # finally close the file
+            contents_file.close()
+            # file is deleted upon exit
 
         return package_dict  # finally return
 
@@ -223,7 +212,7 @@ if __name__ == "__main__":
         # get the dictionary with packages occurences counted
         res_dict = get_occurences_dictionary(args)
         # retrieve the top n
-        max_packages = get_top_n_elements(res_dict, args.n[0])
+        max_packages = get_top_n_elements(res_dict, args.n)
         print_formatted(res_dict, max_packages)  # print the values formatted
 
     except AssertionError:
