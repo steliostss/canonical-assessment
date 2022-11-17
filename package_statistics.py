@@ -19,7 +19,7 @@
 """
 
 from __future__ import annotations
-from typing import List  # type hinting
+from typing import List, Union  # type hinting
 
 from urllib.error import URLError
 import urllib.request
@@ -50,9 +50,10 @@ def parse_arguments(filename: str, archs: List[str]) -> argparse.Namespace:
     )
 
     # pop the "optional" group to add required group only
-    argparser._action_groups.pop()
+    optional = argparser._action_groups.pop()
     # argparser._action_groups.append(optional)
     required = argparser.add_argument_group("required arguments")
+    optional = argparser.add_argument_group("optional arguments")
 
     # join the architectures in a comma separated string
     help_msg = ', '.join(map(str, archs))
@@ -60,11 +61,14 @@ def parse_arguments(filename: str, archs: List[str]) -> argparse.Namespace:
     required.add_argument("arch", nargs=1, default="",
                           type=str, help=help_msg)
 
+    optional.add_argument("-d", action="store_true",
+                          help="--> Delete downloaded file")
+
     args = argparser.parse_args()
     return args
 
 
-def clean_package_str(line: str) -> List[str]:
+def clean_package_str(line: str) -> Union[List[str], List[List[str]]]:
     """Strip spaces and seperate file and packages for the input line.
 
     Args:
@@ -77,15 +81,17 @@ def clean_package_str(line: str) -> List[str]:
     # replace consecutive spaces with a single space
     result = re.sub(' +', ' ', line.strip())
     result = result.strip().split(' ')  # split by the remaining space
-    return ['', '']
+    print(result)
+    # result[1] = result[1].split(',')
+    return result
 
 
-def initiate_execution(arch: str) -> None:
+def initiate_execution(args: argparse.Namespace) -> None:
     """ Start main execution. Read architecture and download the "Contents-$arch.gz" file.
     After finalising execution delete the downloaded file.
 
     Args:
-        arch (str): Target architecture
+        args (argparse.Namespace): Command line arguments
 
     Raises:
         URLError: If download could not be completed from the specified URL    
@@ -93,29 +99,38 @@ def initiate_execution(arch: str) -> None:
     """
 
     uri = "http://ftp.uk.debian.org/debian/dists/stable/main/"
-    contents = "Contents-"+arch+".gz"
+    contents = "Contents-" + args.arch[0] + ".gz"
     print("Downloading file...")
     try:
         # download file from mirror link
-        urllib.request.urlretrieve(uri+contents, contents)
+        if os.path.isfile(contents):
+            pass  # File exists
+        else:
+            # File does not exist: Download
+            urllib.request.urlretrieve(uri+contents, contents)
+
         f = gzip.open(contents, mode='rt')  # read compressed file in text mode
         Lines = f.readlines()  # read by lines
+        count = 0
+        for line in Lines:
+            # get the two element list from the line
+            # [file, packages]
+            res = clean_package_str(line)
+            # print(res)
+            count += 1
+            if (count == 200):
+                break
 
-        # count = 0
-        # for line in Lines:
-        #     count += 1
-        #     print(result)
-        #     if (count == 5):
-        #         break
-        # attempt to delete file, check for OSError
         try:
-            os.remove(contents)
-            print("File deleted.")
+            if (args.d):
+                # attempt to delete file if specified by user
+                os.remove(contents)
+                print("File deleted.")
         except OSError:
             print("Could not delete file: " + contents)
             exit(-2)
     except URLError as e:
-        print("Could not find file to download.")
+        print(e.reason)
         print("Check internet connection or specify the correct url.")
         exit(-1)
 
@@ -131,7 +146,7 @@ if __name__ == "__main__":
         # validate architecture
         assert (args.arch[0] in accepted_architectures)
         print(*args.arch)
-        initiate_execution(args.arch[0])
+        initiate_execution(args)
     except AssertionError:
         # print explanatory message
         print(
