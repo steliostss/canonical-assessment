@@ -52,9 +52,6 @@ def parse_arguments(fname: str, archs: List[str]) -> argparse.Namespace:
     argparser.add_argument("-n", default=10, type=int, nargs=1,
                            help="Get the top-N packages. Default 10.")
 
-    argparser.add_argument("-d", action="store_false",
-                           help="Do NOT delete downloaded file")
-
     arguments = argparser.parse_args()
     return arguments
 
