@@ -26,6 +26,7 @@ import os
 import gzip
 import re
 import sys
+import heapq
 
 from typing import List, Union, Dict  # type hinting
 from urllib.error import URLError
@@ -199,15 +200,18 @@ if __name__ == "__main__":
         # assert (args.arch) # this scenario is handled by argparser
         # validate architecture
         assert args.arch[0] in accepted_architectures
-        res_dict = initiate_execution(args)
-        for j in range(1, args.n[0]+1):
-            # find the maximum value in key-value pairs and keep the key
-            package_max = max(res_dict, key=lambda key: res_dict[key])
 
-            # fix width to 50 characters
-            print(f'{j:>4}' +". " + f'{package_max:<50}' +
-                  "\t", res_dict[package_max], sep='')
-            del res_dict[package_max]  # delete entry to find next max
+        # get the dictionary with packages counted
+        res_dict = initiate_execution(args)
+
+        # get the N most frequent packages using heapq which is of O(N) complexity
+        max_packages = heapq.nlargest(
+            args.n[0], res_dict, key=lambda key: res_dict[key])
+
+        # print the values formatted
+        for idx,item in enumerate(max_packages):
+            print(f'{idx+1:>4}' + ". " + f'{item:<50}' +
+                  "\t", res_dict[item], sep='')
 
     except AssertionError:
         # print explanatory message
