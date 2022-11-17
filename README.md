@@ -25,7 +25,7 @@ argparser.add_argument("-n", default=10, type=int, nargs=1,
 I used the python library [urllib](https://docs.python.org/3/library/urllib.request.html) to download
 the file and [gzip](https://docs.python.org/3/library/gzip.html) to read its' compressed contents line-by-line.
 For each line I striped the extra spaces and then splitted  it by the remaining space character. This gave me
-list L of 2 elements: ```L[0]: file``` and ```L[1]: List of packages```. I splitted the list of packages
+a list L of 2 elements: ```L[0]: file``` and ```L[1]: List of packages```. I splitted the list of packages
 using the comma as separator as defined by the documentation. 
 
 ### Counting occurences
@@ -60,7 +60,7 @@ Sorting and then selecting the top K (10 in our case) elements would be the
 most obvious choice, firstly for readability and secondly for simplicity.
 But the amount of lines in the contents file is unknown and probably large,
 that is why I opted for this algorithm, since it's complexity is basically
-is of **O(N)** since log10 = 1.
+is of **O(N)** since O(log10) = O(1).
 
 ### Memory management
 
@@ -70,13 +70,10 @@ me in creating a temporary directory to store the file.
 
 ## Time Spent
 
-The time spent on this assessment was roughly 8-hours in total, along with studying the
-Debian repository format.
+The time spent on this assessment was roughly 8-hours in total, which includes
+studying the Debian repository format.
 
 ## Author
 
-Stelios Tsagkarakis
-
-- [Github](https://github.com/steliostss)
-- [LinkedIn](https://linkedin.com/in/steliostsag)
+[Stelios Tsagkarakis](https://github.com/steliostss)
 
