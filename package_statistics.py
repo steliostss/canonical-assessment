@@ -19,15 +19,16 @@
 """
 
 from __future__ import annotations
-from typing import List, Union  # type hinting
 
-from urllib.error import URLError
 import urllib.request
 import argparse
 import os
 import gzip
 import re
 import sys
+
+from typing import List, Union, Dict  # type hinting
+from urllib.error import URLError
 
 
 def parse_arguments(fname: str, archs: List[str]) -> argparse.Namespace:
@@ -62,6 +63,9 @@ def parse_arguments(fname: str, archs: List[str]) -> argparse.Namespace:
     argparser.add_argument("arch", nargs=1, default="",
                            type=str, help=help_msg)
 
+    argparser.add_argument("-n", default=10, type=int, nargs=1,
+                           help="Get the top-N packages. Default 10.")
+
     argparser.add_argument("-d", action="store_false",
                            help="Do NOT delete downloaded file")
 
@@ -95,7 +99,53 @@ def clean_package_str(line: str) -> List[Union[str, List[str]]]:
     return [ref_file, packages]
 
 
-def initiate_execution(arguments: argparse.Namespace) -> None:
+def get_file(arch: str) -> str:
+    """Get the target architecture and download the corresponding
+    "Contents-$arch.gz" file for a debian mirror.
+
+    Args:
+        arch (str): Target architecture
+
+    Returns:
+        str: Name of downloaded file
+    """
+
+    uri = "http://ftp.uk.debian.org/debian/dists/stable/main/"
+    contents = "Contents-" + arch + ".gz"
+
+    # download file from mirror link
+    if os.path.isfile(contents):
+        pass  # File exists
+    else:
+        print("Downloading file...")
+        # File does not exist: Download
+        urllib.request.urlretrieve(uri+contents, contents)
+
+    return contents
+
+
+def count_package_occurence(package_file_list: List[Union[str, List[str]]],
+                            package_dict: Dict[str, int]) -> None:
+    """Count the occurences of each package and increment a counter in the corresponding
+    entry of a given dictionary.
+
+    Args:
+        package_file_list (List[Union[str, List[str]]]): Two element list,
+        L[0] is the file and L[1] is a List of the required packages
+        package_dict (Dict[str, int]): Stores (key:value) pairs as (package_name:occurences)
+    """
+
+    for i in package_file_list[1]:
+        if i in package_dict:
+            package_dict[i] += 1
+        else:
+            package_dict[i] = 1
+
+        # alternative syntax - less readable
+        # package_dict[i] = package_dict[i] + 1 if (i in package_dict) else 1
+
+
+def initiate_execution(arguments: argparse.Namespace) -> Dict[str, int]:
     """ Start main execution. Read architecture and download the "Contents-$arch.gz" file.
     After finalising execution delete the downloaded file.
 
@@ -107,30 +157,22 @@ def initiate_execution(arguments: argparse.Namespace) -> None:
         OSError: If downloaded file could not be deleted
     """
 
-    uri = "http://ftp.uk.debian.org/debian/dists/stable/main/"
-    contents = "Contents-" + arguments.arch[0] + ".gz"
-    print("Downloading file...")
     try:
-        # download file from mirror link
-        if os.path.isfile(contents):
-            pass  # File exists
-        else:
-            # File does not exist: Download
-            urllib.request.urlretrieve(uri+contents, contents)
-
+        contents = get_file(arguments.arch[0])
         # read compressed file in text mode
         contents_file = gzip.open(contents, mode='rt')
         contents_lines = contents_file.readlines()  # read by lines
-        count = 0
+        # count = 0
+        package_dict = {}
         for line in contents_lines:
-            # get the two element list from the line
-            # [file, packages]
-            res = clean_package_str(line)
-            print(*res, sep='\t')
-            count += 1
-            if count == 20:
-                break
+            # get the two element list from the line: [file, packages]
+            package_file_list = clean_package_str(line)
 
+            # count the occurence of each package in the package list
+            count_package_occurence(package_file_list, package_dict)
+
+        # finally close the file
+        contents_file.close()
         try:
             if args.d:
                 # attempt to delete file if not specified by user
@@ -139,6 +181,8 @@ def initiate_execution(arguments: argparse.Namespace) -> None:
         except OSError:
             print("Could not delete file: " + contents)
             sys.exit(-2)
+
+        return package_dict  # finally return
     except URLError as caught_error:
         print(caught_error.reason)
         print("Check internet connection or specify the correct url.")
@@ -155,8 +199,16 @@ if __name__ == "__main__":
         # assert (args.arch) # this scenario is handled by argparser
         # validate architecture
         assert args.arch[0] in accepted_architectures
-        print(*args.arch)
-        initiate_execution(args)
+        res_dict = initiate_execution(args)
+        for j in range(1, args.n[0]+1):
+            # find the maximum value in key-value pairs and keep the key
+            package_max = max(res_dict, key=lambda key: res_dict[key])
+
+            # fix width to 50 characters
+            print(f'{j:>4}' +". " + f'{package_max:<50}' +
+                  "\t", res_dict[package_max], sep='')
+            del res_dict[package_max]  # delete entry to find next max
+
     except AssertionError:
         # print explanatory message
         print(
