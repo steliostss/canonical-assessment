@@ -69,22 +69,30 @@ def parse_arguments(fname: str, archs: List[str]) -> argparse.Namespace:
     return arguments
 
 
-def clean_package_str(line: str) -> Union[List[str], List[List[str]]]:
+def clean_package_str(line: str) -> List[Union[str, List[str]]]:
     """Strip spaces and seperate file and packages for the input line.
 
     Args:
         line (str): Input line from the target architecture Contents-$ARCH.gz file
 
     Returns:
-        List[str]: List of 2. L[0] is the file, L[1] is(are) the corresponding package(s)
+        List[str | List[str]]: List of 2 elements. L[0] is the file
+        and L[1] is a list of the required corresponding packages
     """
 
     # replace consecutive spaces with a single space
-    result = re.sub(' +', ' ', line.strip())
-    result = result.strip().split(' ')  # split by the remaining space
-    print(result)
+    dep_line = re.sub(' +', ' ', line.strip())
+    separated_line = dep_line.strip().split(' ')  # split by the remaining space
+    ref_file = separated_line[0]  # define reference file
+
+    if len(separated_line) == 1:
+        packages = [""]  # if there are no required packages add an empty list
+    else:
+        # else add the required packages list
+        packages = separated_line[1].split(',')
+
     # result[1] = result[1].split(',')
-    return result
+    return [ref_file, packages]
 
 
 def initiate_execution(arguments: argparse.Namespace) -> None:
@@ -118,9 +126,9 @@ def initiate_execution(arguments: argparse.Namespace) -> None:
             # get the two element list from the line
             # [file, packages]
             res = clean_package_str(line)
-            print(res)
+            print(*res, sep='\t')
             count += 1
-            if count == 200:
+            if count == 20:
                 break
 
         try:
