@@ -46,7 +46,7 @@ I selected the top 10 elements with most occurences using the
 
 The complexity of this function is of **O(N*log(T))**, where:
 - N: the number of total elements
-- T: the number \<T\> of top elements
+- T: the number of top elements
 
 #### Explanation:
 
