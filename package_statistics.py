@@ -131,11 +131,14 @@ def count_package_occurence(package_file_list: List[Union[str, List[str]]],
 
 
 def get_occurences_dictionary(arguments: argparse.Namespace) -> Dict[str, int]:
-    """ Start main execution. Read architecture and download the "Contents-$arch.gz" file.
+    """Start main execution. Read architecture and download the "Contents-$arch.gz" file.
     After finalising execution delete the downloaded file.
 
     Args:
         args (argparse.Namespace): Command line arguments
+
+    Returns:
+        Dict[str, int]: Returns (key:value) pairs as (package_name:occurences)
 
     Raises:
         URLError: If download could not be completed from the specified URL
