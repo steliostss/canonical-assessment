@@ -1,6 +1,6 @@
 # Canonical Interview - Technical Assessment
 
-Technical Assessment for the Canonical Interview process, to test knowledge of linux packaging
+Technical Assessment for the Canonical Application process.
 
 ## Implementation
 
